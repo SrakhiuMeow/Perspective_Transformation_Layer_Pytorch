@@ -35,9 +35,9 @@ def gather_nd(params, indices):
     return out.view(out_shape)
 
 
-class PerspectiveLayer(nn.Module):
+class Perspective_Layer(nn.Module):
     def __init__(self, output_size=None, input_channel=3, tm=1, param=8, random_init=False, **kwargs):
-        super(PerspectiveLayer, self).__init__()
+        super(Perspective_Layer, self).__init__()
         self.output_size = output_size # (H, W)
         self.param = param
         self.tm = tm
@@ -60,7 +60,10 @@ class PerspectiveLayer(nn.Module):
             input_shapes = input_shapes[0]
         else:
             input_shapes = input_shapes
-        H, W = self.output_size
+        if self.output_size:
+            H, W = self.output_size
+        else:
+            H, W = input_shapes[2], input_shapes[3]
         num_channels = input_shapes[1]
         return (None, num_channels, H, W)
 
@@ -74,8 +77,9 @@ class PerspectiveLayer(nn.Module):
         expand_inp = inp.unsqueeze(0)
         tile_inputs = expand_inp.repeat(self.tm, 1, 1, 1, 1) # (tm, N, C, H, W)
 
-        all_out = [self.vectorize_tms((self.wt_pers[i], tile_inputs[i])) for i in range(self.tm)] # (N, C, Ho, Wo, tm)
-        all_out = torch.cat(all_out, dim=-1)
+        all_out = [self.vectorize_tms((self.wt_pers[i], tile_inputs[i])) for i in range(self.tm)] 
+        all_out = torch.cat(all_out, dim=-1) # (N, C, Ho, Wo, tm)
+        all_out = all_out.permute(0,1,4,2,3).flatten(1,2) # (N, C*tm, Ho, Wo)
         return all_out
     
     
@@ -251,7 +255,7 @@ class PerspectiveLayer(nn.Module):
 if __name__ == '__main__':
     # Test
     input = torch.randn(8, 3, 448, 224)
-    pers_layer = PerspectiveLayer(output_size=(448, 224), tm=4, random_init=False)
+    pers_layer = Perspective_Layer(output_size=(448, 224), tm=4, random_init=False)
     output = pers_layer(input)
     print(output.shape)
     # print(pers_layer.state_dict())
